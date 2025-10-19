@@ -1,0 +1,6 @@
+name,price,category,store_id,quantity,image_url,nutriscore,nova_group,energy_kcal,sugars_100g,salt_100g,saturated_fat_100g,city,created_at
+"French Baguette",1.80,"Bakery","carrefour_paris","1 piece","https://example.com/baguette.jpg","B",2,290,2.0,1.0,0.8,"Paris","2025-01-22T09:15:00"
+"Organic Eggs",3.20,"Dairy","carrefour_paris","6 pieces","https://example.com/eggs.jpg","A",1,155,1.1,0.3,3.3,"Paris","2025-01-22T09:16:00"
+"Olive Oil",5.90,"Pantry","carrefour_paris","500ml","https://example.com/oil.jpg","A",1,884,0.0,0.0,14.0,"Paris","2025-01-22T09:17:00"
+"Apples Red",3.40,"Fruits","carrefour_paris","1kg","https://example.com/apples.jpg","A",1,52,10.4,0.0,0.2,"Paris","2025-01-22T09:18:00"
+"Yogurt Natural",2.10,"Dairy","carrefour_paris","500g","https://example.com/yogurt.jpg","A",1,59,4.7,0.2,1.0,"Paris","2025-01-22T09:19:00"

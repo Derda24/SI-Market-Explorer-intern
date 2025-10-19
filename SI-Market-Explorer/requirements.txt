@@ -1,0 +1,24 @@
+# Core Dependencies for Intern Scrapers
+requests>=2.31.0
+pandas>=2.0.0
+beautifulsoup4>=4.12.0
+selenium>=4.15.0
+python-dotenv>=1.0.0
+supabase>=2.0.0
+
+# Optional: Additional scraping libraries
+lxml>=4.9.0
+html5lib>=1.1
+urllib3>=2.0.0
+
+# Optional: Data processing
+numpy>=1.24.0
+openpyxl>=3.1.0
+
+# Optional: Web automation
+webdriver-manager>=4.0.0
+
+# Development and Testing
+pytest>=7.4.0
+black>=23.0.0
+flake8>=6.0.0
