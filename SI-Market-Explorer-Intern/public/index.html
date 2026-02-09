@@ -1,0 +1,455 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Market Explorer - CSV Upload</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        .header {
+            text-align: center;
+            color: white;
+            margin-bottom: 30px;
+        }
+        
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+        
+        .tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 30px;
+            justify-content: center;
+        }
+        
+        .tab {
+            padding: 12px 24px;
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: all 0.3s;
+        }
+        
+        .tab:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+        
+        .tab.active {
+            background: white;
+            color: #667eea;
+        }
+        
+        .card {
+            background: white;
+            border-radius: 12px;
+            padding: 30px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #333;
+        }
+        
+        input[type="text"],
+        input[type="file"] {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: border-color 0.3s;
+        }
+        
+        input[type="text"]:focus,
+        input[type="file"]:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        .file-input-wrapper {
+            position: relative;
+            display: inline-block;
+            width: 100%;
+        }
+        
+        .file-input-label {
+            display: block;
+            padding: 40px;
+            border: 2px dashed #667eea;
+            border-radius: 8px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+            background: #f8f9ff;
+        }
+        
+        .file-input-label:hover {
+            background: #f0f2ff;
+            border-color: #764ba2;
+        }
+        
+        input[type="file"] {
+            position: absolute;
+            opacity: 0;
+            width: 100%;
+            height: 100%;
+            cursor: pointer;
+        }
+        
+        .btn {
+            padding: 12px 30px;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            width: 100%;
+        }
+        
+        .btn:hover {
+            background: #764ba2;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+        
+        .btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .alert {
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        
+        .alert-success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        
+        .alert-error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        
+        .alert-info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+        
+        .preview-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+            overflow-x: auto;
+        }
+        
+        .preview-table th,
+        .preview-table td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #e0e0e0;
+        }
+        
+        .preview-table th {
+            background: #f8f9fa;
+            font-weight: 600;
+        }
+        
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-top: 20px;
+        }
+        
+        .stat-card {
+            background: #f8f9ff;
+            padding: 20px;
+            border-radius: 8px;
+            text-align: center;
+        }
+        
+        .stat-value {
+            font-size: 2em;
+            font-weight: bold;
+            color: #667eea;
+        }
+        
+        .stat-label {
+            color: #666;
+            margin-top: 5px;
+        }
+        
+        .hidden {
+            display: none;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 20px;
+        }
+        
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📊 Market Explorer</h1>
+            <p>CSV File Sharing Platform</p>
+        </div>
+        
+        <div class="tabs">
+            <button class="tab active" onclick="showTab('upload')">📤 Upload CSV</button>
+            <button class="tab" onclick="showTab('dashboard')">📊 Admin Dashboard</button>
+        </div>
+        
+        <!-- Upload Tab -->
+        <div id="upload-tab" class="card">
+            <h2>Upload Your CSV File</h2>
+            
+            <div id="upload-alerts"></div>
+            
+            <form id="upload-form">
+                <div class="form-group">
+                    <label for="intern-name">Your Name (firstname_lastname_country)</label>
+                    <input type="text" id="intern-name" placeholder="e.g., marta_kovacevic_france" required>
+                </div>
+                
+                <div class="form-group">
+                    <label>Select CSV File</label>
+                    <div class="file-input-wrapper">
+                        <label class="file-input-label" for="csv-file">
+                            <div>📁 Click to select file or drag and drop</div>
+                            <div style="margin-top: 10px; font-size: 14px; color: #666;">
+                                File must be named: products_YYYY_MM_DD.csv
+                            </div>
+                        </label>
+                        <input type="file" id="csv-file" accept=".csv" required>
+                    </div>
+                    <div id="file-name" style="margin-top: 10px; font-weight: 600;"></div>
+                </div>
+                
+                <div id="preview-section" class="hidden">
+                    <h3>File Preview</h3>
+                    <div id="preview-content"></div>
+                </div>
+                
+                <button type="submit" class="btn" id="upload-btn">
+                    📤 Upload CSV File
+                </button>
+            </form>
+        </div>
+        
+        <!-- Dashboard Tab -->
+        <div id="dashboard-tab" class="card hidden">
+            <h2>Admin Dashboard</h2>
+            <div id="dashboard-content">
+                <div class="loading">
+                    <div class="spinner"></div>
+                    <p>Loading dashboard data...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        let currentTab = 'upload';
+        
+        function showTab(tab) {
+            currentTab = tab;
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            event.target.classList.add('active');
+            
+            document.getElementById('upload-tab').classList.toggle('hidden', tab !== 'upload');
+            document.getElementById('dashboard-tab').classList.toggle('hidden', tab !== 'dashboard');
+            
+            if (tab === 'dashboard') {
+                loadDashboard();
+            }
+        }
+        
+        function showAlert(message, type = 'info') {
+            const alertsDiv = document.getElementById('upload-alerts');
+            const alert = document.createElement('div');
+            alert.className = `alert alert-${type}`;
+            alert.textContent = message;
+            alertsDiv.appendChild(alert);
+            
+            setTimeout(() => alert.remove(), 5000);
+        }
+        
+        document.getElementById('csv-file').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (file) {
+                document.getElementById('file-name').textContent = `Selected: ${file.name}`;
+                previewFile(file);
+            }
+        });
+        
+        function previewFile(file) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const csv = e.target.result;
+                const lines = csv.split('\n').slice(0, 11); // First 10 rows
+                const headers = lines[0].split(',');
+                
+                let table = '<table class="preview-table"><thead><tr>';
+                headers.forEach(h => {
+                    table += `<th>${h.trim()}</th>`;
+                });
+                table += '</tr></thead><tbody>';
+                
+                lines.slice(1, 6).forEach(line => {
+                    table += '<tr>';
+                    line.split(',').forEach(cell => {
+                        table += `<td>${cell.trim()}</td>`;
+                    });
+                    table += '</tr>';
+                });
+                table += '</tbody></table>';
+                
+                document.getElementById('preview-content').innerHTML = table;
+                document.getElementById('preview-section').classList.remove('hidden');
+            };
+            reader.readAsText(file);
+        }
+        
+        document.getElementById('upload-form').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const internName = document.getElementById('intern-name').value;
+            const fileInput = document.getElementById('csv-file');
+            const file = fileInput.files[0];
+            
+            if (!file) {
+                showAlert('Please select a CSV file', 'error');
+                return;
+            }
+            
+            const reader = new FileReader();
+            reader.onload = async function(e) {
+                const csvContent = e.target.result;
+                
+                document.getElementById('upload-btn').disabled = true;
+                document.getElementById('upload-btn').textContent = 'Uploading...';
+                
+                try {
+                    const response = await fetch('/api/upload', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            filename: file.name,
+                            csv_content: csvContent,
+                            intern_name: internName
+                        })
+                    });
+                    
+                    const data = await response.json();
+                    
+                    if (data.success) {
+                        showAlert(`✅ Successfully uploaded ${file.name}!`, 'success');
+                        document.getElementById('upload-form').reset();
+                        document.getElementById('file-name').textContent = '';
+                        document.getElementById('preview-section').classList.add('hidden');
+                    } else {
+                        showAlert(`❌ Error: ${data.error || JSON.stringify(data.errors)}`, 'error');
+                    }
+                } catch (error) {
+                    showAlert(`❌ Upload failed: ${error.message}`, 'error');
+                } finally {
+                    document.getElementById('upload-btn').disabled = false;
+                    document.getElementById('upload-btn').textContent = '📤 Upload CSV File';
+                }
+            };
+            
+            reader.readAsText(file);
+        });
+        
+        async function loadDashboard() {
+            try {
+                const response = await fetch('/api/files?action=list');
+                const data = await response.json();
+                
+                let html = '<div class="stats">';
+                html += `<div class="stat-card"><div class="stat-value">${data.interns.length}</div><div class="stat-label">Total Interns</div></div>`;
+                html += `<div class="stat-card"><div class="stat-value">${data.total_files}</div><div class="stat-label">Total Files</div></div>`;
+                html += '</div>';
+                
+                html += '<h3 style="margin-top: 30px;">Intern Files</h3>';
+                data.interns.forEach(intern => {
+                    html += `<div style="margin-top: 20px; padding: 15px; background: #f8f9ff; border-radius: 8px;">`;
+                    html += `<h4>${intern.name}</h4>`;
+                    html += `<p>Files: ${intern.file_count}</p>`;
+                    if (intern.files.length > 0) {
+                        html += '<ul>';
+                        intern.files.forEach(file => {
+                            html += `<li>${file.filename} <a href="/api/files?action=download&path=${encodeURIComponent(file.path)}">Download</a></li>`;
+                        });
+                        html += '</ul>';
+                    }
+                    html += '</div>';
+                });
+                
+                document.getElementById('dashboard-content').innerHTML = html;
+            } catch (error) {
+                document.getElementById('dashboard-content').innerHTML = 
+                    `<div class="alert alert-error">Error loading dashboard: ${error.message}</div>`;
+            }
+        }
+    </script>
+</body>
+</html>

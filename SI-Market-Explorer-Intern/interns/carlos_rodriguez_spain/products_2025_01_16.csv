@@ -1,0 +1,6 @@
+name,price,category,store_id,quantity,image_url,nutriscore,nova_group,energy_kcal,sugars_100g,salt_100g,saturated_fat_100g,city,created_at
+"Pan Integral",1.95,"Panadería","mercadona_madrid","1 barra","https://example.com/pan_integral.jpg","A",1,240,4.0,0.9,1.0,"Madrid","2025-01-16T11:20:00"
+"Leche Entera",0.89,"Lácteos","mercadona_madrid","1 litro","https://example.com/leche.jpg","B",1,64,4.8,0.1,1.8,"Madrid","2025-01-16T11:21:00"
+"Jamón Serrano",8.50,"Charcutería","mercadona_madrid","100g","https://example.com/jamon.jpg","C",4,180,0.5,2.8,3.5,"Madrid","2025-01-16T11:22:00"
+"Tomates",2.45,"Verduras","mercadona_madrid","1kg","https://example.com/tomates.jpg","A",1,18,2.6,0.0,0.0,"Madrid","2025-01-16T11:23:00"
+"Queso Manchego",6.80,"Lácteos","mercadona_madrid","200g","https://example.com/queso.jpg","C",3,380,0.1,1.8,20.0,"Madrid","2025-01-16T11:24:00"

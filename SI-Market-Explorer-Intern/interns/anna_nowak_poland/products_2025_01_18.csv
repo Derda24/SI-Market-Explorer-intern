@@ -1,0 +1,6 @@
+name,price,category,store_id,quantity,image_url,nutriscore,nova_group,energy_kcal,sugars_100g,salt_100g,saturated_fat_100g,city,created_at
+"Chleb Razowy",3.20,"Pieczywo","biedronka_warsaw","1 sztuka","https://example.com/chleb.jpg","A",1,250,4.0,0.8,1.2,"Warsaw","2025-01-18T14:30:00"
+"Mleko 3.2%",2.10,"Nabiał","biedronka_warsaw","1 litr","https://example.com/mleko.jpg","B",1,62,4.7,0.1,1.8,"Warsaw","2025-01-18T14:31:00"
+"Kiełbasa Krakowska",12.50,"Wędliny","biedronka_warsaw","300g","https://example.com/kielbasa.jpg","D",4,320,1.5,2.5,8.0,"Warsaw","2025-01-18T14:32:00"
+"Pomidory",4.80,"Warzywa","biedronka_warsaw","1kg","https://example.com/pomidory.jpg","A",1,18,2.6,0.0,0.0,"Warsaw","2025-01-18T14:33:00"
+"Ser Gouda",8.90,"Nabiał","biedronka_warsaw","200g","https://example.com/ser.jpg","C",3,356,0.1,1.8,18.0,"Warsaw","2025-01-18T14:34:00"

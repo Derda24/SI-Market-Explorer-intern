@@ -1,0 +1,11 @@
+{
+  "name": "market-explorer",
+  "version": "1.0.0",
+  "description": "CSV file sharing platform for Market Explorer",
+  "scripts": {
+    "build": "echo 'No build step required for static files'"
+  },
+  "keywords": ["csv", "upload", "vercel"],
+  "author": "Software Intelligence Team",
+  "license": "MIT"
+}
