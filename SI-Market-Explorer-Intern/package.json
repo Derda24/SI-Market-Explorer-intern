@@ -7,5 +7,6 @@
   },
   "keywords": ["csv", "upload", "vercel"],
   "author": "Software Intelligence Team",
-  "license": "MIT"
+  "license": "MIT",
+  "homepage": "."
 }
