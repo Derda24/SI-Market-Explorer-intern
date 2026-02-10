@@ -1,4 +1,0 @@
-name,price,category,store_id,quantity,image_url,nutriscore,nova_group,energy_kcal,sugars_100g,salt_100g,saturated_fat_100g,city,created_at
-"Bread Whole Wheat",2.50,"Bakery","carrefour_paris","1 loaf","https://example.com/bread.jpg","A",1,250,5.0,0.8,1.2,"Paris","2025-01-15T10:30:00"
-"Milk 1L",1.20,"Dairy","carrefour_paris","1 liter","https://example.com/milk.jpg","B",1,42,4.7,0.1,1.8,"Paris","2025-01-15T10:31:00"
-"Chocolate Bar",3.50,"Confectionery","carrefour_paris","100g","https://example.com/chocolate.jpg","D",3,540,54.0,0.2,18.0,"Paris","2025-01-15T10:32:00"
