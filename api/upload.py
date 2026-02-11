@@ -17,25 +17,22 @@ OPTIONAL_COLUMNS = ['quantity', 'image_url', 'nutriscore', 'nova_group',
                     'energy_kcal', 'sugars_100g', 'salt_100g', 'saturated_fat_100g']
 
 def validate_filename(filename: str) -> Dict[str, any]:
-    """Validate CSV filename format"""
-    pattern = r'^products_\d{4}_\d{2}_\d{2}\.csv$'
-    if not re.match(pattern, filename):
+    """Validate CSV filename format. Accepts exact name or name ending with products_YYYY_MM_DD.csv"""
+    # Must end with products_YYYY_MM_DD.csv (optional prefix like firstname_lastname_country_)
+    match = re.search(r'products_(\d{4})_(\d{2})_(\d{2})\.csv$', filename, re.IGNORECASE)
+    if not match:
         return {
             'valid': False,
-            'error': 'Filename must be: products_YYYY_MM_DD.csv (e.g., products_2025_01_15.csv)'
+            'error': 'Filename must end with: products_YYYY_MM_DD.csv (e.g. products_2025_01_15.csv or myname_products_2025_01_15.csv)'
         }
-    
-    # Extract and validate date
+    year, month, day = match.group(1), match.group(2), match.group(3)
     try:
-        date_str = filename.replace('products_', '').replace('.csv', '')
-        year, month, day = date_str.split('_')
         datetime(int(year), int(month), int(day))
     except ValueError:
         return {
             'valid': False,
             'error': 'Invalid date in filename'
         }
-    
     return {'valid': True}
 
 def validate_csv_structure(csv_content: str) -> Dict[str, any]:
