@@ -20,8 +20,7 @@
       "dest": "/api/files.py"
     },
     {
-      "src": "/",
-      "dest": "/public/index.html"
+      "handle": "filesystem"
     },
     {
       "src": "/(.*)",
