@@ -35,37 +35,21 @@ def validate_filename(filename: str) -> Dict[str, any]:
         }
     return {'valid': True}
 
-def validate_csv_structure(csv_content: str) -> Dict[str, any]:
-    """Validate CSV structure and columns"""
+def _validate_csv_df(df: pd.DataFrame) -> Dict[str, any]:
+    """Validate CSV structure from an already-parsed DataFrame."""
     errors = []
-    
-    try:
-        df = pd.read_csv(StringIO(csv_content))
-    except Exception as e:
-        return {
-            'valid': False,
-            'errors': [f'Invalid CSV format: {str(e)}']
-        }
-    
-    # Check required columns
     missing_columns = [col for col in REQUIRED_COLUMNS if col not in df.columns]
     if missing_columns:
         errors.append(f"Missing required columns: {', '.join(missing_columns)}")
-    
-    # Check for empty dataframe
     if df.empty:
         errors.append("CSV file is empty")
-    
-    # Check for required data
     if 'name' in df.columns and df['name'].isna().all():
         errors.append("All product names are missing")
-    
     if 'price' in df.columns:
         try:
             pd.to_numeric(df['price'], errors='coerce')
-        except:
+        except Exception:
             errors.append("Price column contains invalid numeric values")
-    
     return {
         'valid': len(errors) == 0,
         'errors': errors,
@@ -73,35 +57,28 @@ def validate_csv_structure(csv_content: str) -> Dict[str, any]:
         'columns': list(df.columns)
     }
 
-def get_upload_summary(csv_content: str) -> Dict:
-    """Get summary statistics for uploaded CSV"""
-    try:
-        df = pd.read_csv(StringIO(csv_content))
-        summary = {
-            'total_products': len(df),
-            'columns': list(df.columns),
-            'required_columns_present': all(col in df.columns for col in REQUIRED_COLUMNS),
-            'optional_columns_present': [col for col in OPTIONAL_COLUMNS if col in df.columns]
-        }
-        
-        if 'category' in df.columns:
-            summary['unique_categories'] = int(df['category'].nunique())
-        
-        if 'price' in df.columns:
-            try:
-                prices = pd.to_numeric(df['price'], errors='coerce')
-                summary['avg_price'] = float(prices.mean())
-                summary['min_price'] = float(prices.min())
-                summary['max_price'] = float(prices.max())
-            except:
-                pass
-        
-        if 'city' in df.columns:
-            summary['cities'] = df['city'].unique().tolist()
-        
-        return summary
-    except Exception as e:
-        return {'error': str(e)}
+
+def _summary_from_df(df: pd.DataFrame) -> Dict:
+    """Build upload summary from an already-parsed DataFrame."""
+    summary = {
+        'total_products': len(df),
+        'columns': list(df.columns),
+        'required_columns_present': all(col in df.columns for col in REQUIRED_COLUMNS),
+        'optional_columns_present': [col for col in OPTIONAL_COLUMNS if col in df.columns]
+    }
+    if 'category' in df.columns:
+        summary['unique_categories'] = int(df['category'].nunique())
+    if 'price' in df.columns:
+        try:
+            prices = pd.to_numeric(df['price'], errors='coerce')
+            summary['avg_price'] = float(prices.mean())
+            summary['min_price'] = float(prices.min())
+            summary['max_price'] = float(prices.max())
+        except Exception:
+            pass
+    if 'city' in df.columns:
+        summary['cities'] = df['city'].unique().tolist()
+    return summary
 
 from http.server import BaseHTTPRequestHandler
 
@@ -151,8 +128,22 @@ class handler(BaseHTTPRequestHandler):
                 }).encode('utf-8'))
                 return
             
-            # Validate CSV structure
-            csv_validation = validate_csv_structure(csv_content)
+            # Parse CSV once (saves memory and time for large files)
+            try:
+                df = pd.read_csv(StringIO(csv_content))
+            except Exception as e:
+                self.send_response(400)
+                self.send_header('Content-Type', 'application/json')
+                self.send_header('Access-Control-Allow-Origin', '*')
+                self.end_headers()
+                self.wfile.write(json.dumps({
+                    'success': False,
+                    'errors': [f'Invalid CSV format: {str(e)}']
+                }).encode('utf-8'))
+                return
+
+            # Validate CSV structure (reuses same DataFrame)
+            csv_validation = _validate_csv_df(df)
             if not csv_validation['valid']:
                 self.send_response(400)
                 self.send_header('Content-Type', 'application/json')
@@ -163,9 +154,9 @@ class handler(BaseHTTPRequestHandler):
                     'errors': csv_validation['errors']
                 }).encode('utf-8'))
                 return
-            
-            # Get summary
-            summary = get_upload_summary(csv_content)
+
+            # Get summary from same DataFrame (no second parse)
+            summary = _summary_from_df(df)
             
             # Save file (in production, use Vercel Blob Storage or external storage)
             # For now, return success - actual storage should be implemented

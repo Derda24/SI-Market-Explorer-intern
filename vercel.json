@@ -2,5 +2,8 @@
   "version": 2,
   "framework": null,
   "buildCommand": "",
-  "outputDirectory": "public"
+  "outputDirectory": "public",
+  "functions": {
+    "api/upload.py": { "maxDuration": 30 }
+  }
 }
