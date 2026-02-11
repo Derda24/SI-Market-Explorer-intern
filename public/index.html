@@ -471,14 +471,21 @@
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ filename: file.name, csv_content: csvContent, intern_name: internName })
                     });
-                    const data = await response.json();
+                    const text = await response.text();
+                    let data;
+                    try {
+                        data = text ? JSON.parse(text) : {};
+                    } catch (_) {
+                        showAlert('Server error. Use a file named products_YYYY_MM_DD.csv (e.g. products_2026_02_11.csv) and try again.', 'error');
+                        return;
+                    }
                     if (data.success) {
                         showAlert('Uploaded: ' + file.name, 'success');
                         document.getElementById('upload-form').reset();
                         document.getElementById('file-name').textContent = '';
                         document.getElementById('preview-section').classList.add('hidden');
                     } else {
-                        showAlert('Error: ' + (data.error || JSON.stringify(data.errors)), 'error');
+                        showAlert('Error: ' + (data.error || (data.errors ? data.errors.join('; ') : 'Unknown error')), 'error');
                     }
                 } catch (err) {
                     showAlert('Upload failed: ' + err.message, 'error');
