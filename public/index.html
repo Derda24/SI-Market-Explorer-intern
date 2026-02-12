@@ -525,6 +525,17 @@
                     html += '<div class="alert alert-error">Error loading files: ' + data.error + '</div>';
                 }
                 
+                // Show debug info if present (for troubleshooting)
+                if (data.debug) {
+                    html += '<div class="alert alert-info" style="font-size: 0.75rem; padding: 10px;">';
+                    html += '<strong>Debug:</strong> Found ' + data.debug.blobs_found + ' blobs';
+                    html += ' (using package: ' + data.debug.using_package + ')';
+                    if (data.debug.sample_blobs && data.debug.sample_blobs.length > 0) {
+                        html += '<br>Sample blob: ' + JSON.stringify(data.debug.sample_blobs[0]).substring(0, 200);
+                    }
+                    html += '</div>';
+                }
+                
                 html += '<div class="dashboard-section"><h3>Intern files</h3>';
                 if (data.interns && data.interns.length > 0) {
                     data.interns.forEach(intern => {

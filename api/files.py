@@ -44,10 +44,15 @@ class handler(BaseHTTPRequestHandler):
                     # Use vercel_blob package if available, otherwise fallback to REST API
                     if VERCEL_BLOB_AVAILABLE:
                         # Use the vercel_blob package
+                        print("Using vercel_blob package for listing")
                         result = vercel_blob.list({'prefix': 'interns/'})
+                        print(f"Full list result: {json.dumps(result, indent=2, default=str)}")
                         all_blobs = result.get('blobs', [])
                         print(f"Blob Storage list response (via package): {len(all_blobs)} blobs found")
+                        if len(all_blobs) > 0:
+                            print(f"First blob sample: {json.dumps(all_blobs[0], indent=2, default=str)}")
                     else:
+                        print("vercel_blob package NOT available, using REST API fallback")
                         # Fallback: Try REST API with GET first
                         try:
                             list_url = 'https://blob.vercel-storage.com/list?prefix=interns/'
@@ -76,11 +81,16 @@ class handler(BaseHTTPRequestHandler):
                             else:
                                 raise
                     
+                    # Debug: log total blobs found
+                    print(f"Total blobs retrieved: {len(all_blobs)}")
+                    
                     # Organize blobs by intern name
                     interns_dict = {}
                     total_files = 0
                     
-                    for blob in all_blobs:
+                    for idx, blob in enumerate(all_blobs):
+                        if idx < 3:  # Log first 3 blobs for debugging
+                            print(f"Processing blob {idx}: {json.dumps(blob, indent=2, default=str)}")
                         # Try different possible field names for pathname
                         pathname = blob.get('pathname') or blob.get('path') or blob.get('key') or ''
                         
@@ -120,6 +130,18 @@ class handler(BaseHTTPRequestHandler):
                     # Sort interns by name
                     interns.sort(key=lambda x: x['name'])
                     
+                    # Debug: log final result
+                    print(f"Final result: {len(interns)} interns, {total_files} total files")
+                    if len(interns) > 0:
+                        print(f"Interns: {[i['name'] for i in interns]}")
+                    
+                    # Include debug info in response (remove in production)
+                    debug_info = {
+                        'blobs_found': len(all_blobs),
+                        'using_package': VERCEL_BLOB_AVAILABLE,
+                        'sample_blobs': all_blobs[:3] if len(all_blobs) > 0 else []
+                    }
+                    
                     self.send_response(200)
                     self.send_header('Content-Type', 'application/json')
                     self.send_header('Access-Control-Allow-Origin', '*')
@@ -127,7 +149,8 @@ class handler(BaseHTTPRequestHandler):
                     self.wfile.write(json.dumps({
                         'interns': interns,
                         'total_files': total_files,
-                        'total_products': 0
+                        'total_products': 0,
+                        'debug': debug_info
                     }).encode('utf-8'))
                     
                 except Exception as e:
