@@ -234,7 +234,7 @@ class handler(BaseHTTPRequestHandler):
                 data = json.dumps(upload_data).encode('utf-8')
                 
                 print("Making request to Blob Storage API...")
-                req = urllib.request.Request(upload_url, data=data, headers=headers)
+                req = urllib.request.Request(upload_url, data=data, headers=headers, method='POST')
                 with urllib.request.urlopen(req) as response:
                     result = json.loads(response.read().decode('utf-8'))
                     print(f"Blob Storage upload response: {json.dumps(result, indent=2)}")
