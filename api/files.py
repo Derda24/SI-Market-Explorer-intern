@@ -5,6 +5,7 @@ Handles file listing, downloading, and admin operations
 
 import json
 import os
+import re
 from urllib.parse import urlparse, parse_qs, quote
 from http.server import BaseHTTPRequestHandler
 
@@ -108,7 +109,18 @@ class handler(BaseHTTPRequestHandler):
                     interns_dict = {}
                     total_files = 0
                     
-                    for idx, blob in enumerate(all_blobs):
+                    # Also process all_blobs_all if available (blobs without prefix filter)
+                    blobs_to_process = all_blobs.copy() if all_blobs else []
+                    if 'all_blobs_all' in locals() and len(all_blobs_all) > 0:
+                        # Combine both lists, avoiding duplicates
+                        seen_pathnames = {blob.get('pathname') or blob.get('path') or blob.get('key') or '' for blob in all_blobs}
+                        for blob in all_blobs_all:
+                            pathname = blob.get('pathname') or blob.get('path') or blob.get('key') or ''
+                            if pathname and pathname not in seen_pathnames:
+                                blobs_to_process.append(blob)
+                                seen_pathnames.add(pathname)
+                    
+                    for idx, blob in enumerate(blobs_to_process):
                         if idx < 3:  # Log first 3 blobs for debugging
                             print(f"Processing blob {idx}: {json.dumps(blob, indent=2, default=str)}")
                         # Try different possible field names for pathname
@@ -117,26 +129,54 @@ class handler(BaseHTTPRequestHandler):
                         # Debug: log blob structure
                         if not pathname:
                             print(f"Blob missing pathname: {json.dumps(blob)}")
+                            continue
                         
-                        # Path format: interns/{intern_name}/products_YYYY_MM_DD.csv
-                        if pathname and pathname.startswith('interns/') and pathname.endswith('.csv'):
+                        intern_name = None
+                        filename = None
+                        
+                        # Case 1: Path format: interns/{intern_name}/products_YYYY_MM_DD.csv
+                        if pathname.startswith('interns/') and pathname.endswith('.csv'):
                             parts = pathname.split('/')
                             if len(parts) >= 3:
                                 intern_name = parts[1]
                                 filename = parts[2]
-                                
-                                if filename.startswith('products_') and filename.endswith('.csv'):
-                                    if intern_name not in interns_dict:
-                                        interns_dict[intern_name] = []
-                                    
-                                    interns_dict[intern_name].append({
-                                        'filename': filename,
-                                        'date': filename.replace('products_', '').replace('.csv', ''),
-                                        'path': pathname,
-                                        'url': blob.get('url') or blob.get('downloadUrl'),
-                                        'downloadUrl': blob.get('downloadUrl') or blob.get('url')
-                                    })
-                                    total_files += 1
+                        
+                        # Case 2: Filename format: {intern_name}_products_YYYY_MM_DD.csv
+                        # Extract intern name from filename if it follows the pattern
+                        elif pathname.endswith('.csv'):
+                            # Try to match pattern: {intern_name}_products_YYYY_MM_DD.csv
+                            match = re.search(r'^(.+?)_products_(\d{4})_(\d{2})_(\d{2})\.csv$', pathname, re.IGNORECASE)
+                            if match:
+                                intern_name = match.group(1)  # Everything before "_products_"
+                                filename = f"products_{match.group(2)}_{match.group(3)}_{match.group(4)}.csv"
+                            else:
+                                # Fallback: if filename starts with products_, use a default intern name
+                                # Or try to extract from the beginning of the filename
+                                if pathname.startswith('products_'):
+                                    # No intern name in filename, skip or use "unknown"
+                                    print(f"Skipping blob with no intern name: {pathname}")
+                                    continue
+                                else:
+                                    # Try to extract: assume format is {name}_products_*.csv
+                                    parts = pathname.rsplit('_products_', 1)
+                                    if len(parts) == 2:
+                                        intern_name = parts[0]
+                                        filename = 'products_' + parts[1]
+                        
+                        # Process if we found both intern_name and filename
+                        if intern_name and filename and filename.startswith('products_') and filename.endswith('.csv'):
+                            if intern_name not in interns_dict:
+                                interns_dict[intern_name] = []
+                            
+                            interns_dict[intern_name].append({
+                                'filename': filename,
+                                'date': filename.replace('products_', '').replace('.csv', ''),
+                                'path': pathname,  # Use original pathname for download
+                                'url': blob.get('url') or blob.get('downloadUrl'),
+                                'downloadUrl': blob.get('downloadUrl') or blob.get('url')
+                            })
+                            total_files += 1
+                            print(f"Added file: {intern_name}/{filename} (from pathname: {pathname})")
                     
                     # Convert to list format
                     interns = []
