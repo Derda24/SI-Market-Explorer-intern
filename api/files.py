@@ -45,12 +45,21 @@ class handler(BaseHTTPRequestHandler):
                     if VERCEL_BLOB_AVAILABLE:
                         # Use the vercel_blob package
                         print("Using vercel_blob package for listing")
+                        # Try with prefix first
                         result = vercel_blob.list({'prefix': 'interns/'})
-                        print(f"Full list result: {json.dumps(result, indent=2, default=str)}")
+                        print(f"Full list result (with prefix): {json.dumps(result, indent=2, default=str)}")
                         all_blobs = result.get('blobs', [])
-                        print(f"Blob Storage list response (via package): {len(all_blobs)} blobs found")
+                        print(f"Blob Storage list response (via package, with prefix): {len(all_blobs)} blobs found")
+                        
+                        # Also try without prefix to see ALL blobs
+                        result_all = vercel_blob.list({})
+                        all_blobs_all = result_all.get('blobs', [])
+                        print(f"Blob Storage list response (via package, NO prefix): {len(all_blobs_all)} total blobs found")
+                        if len(all_blobs_all) > 0:
+                            print(f"All blobs sample (first 3): {json.dumps(all_blobs_all[:3], indent=2, default=str)}")
+                        
                         if len(all_blobs) > 0:
-                            print(f"First blob sample: {json.dumps(all_blobs[0], indent=2, default=str)}")
+                            print(f"First blob sample (with prefix): {json.dumps(all_blobs[0], indent=2, default=str)}")
                     else:
                         print("vercel_blob package NOT available, using REST API fallback")
                         # Fallback: Try REST API with GET first
@@ -61,8 +70,19 @@ class handler(BaseHTTPRequestHandler):
                             with urllib.request.urlopen(req) as response:
                                 response_text = response.read().decode('utf-8')
                                 result = json.loads(response_text)
-                                print(f"Blob Storage list response (REST GET): {json.dumps(result, indent=2)}")
+                                print(f"Blob Storage list response (REST GET, with prefix): {json.dumps(result, indent=2)}")
                                 all_blobs = result.get('blobs', result.get('files', []))
+                            
+                            # Also try without prefix
+                            list_url_all = 'https://blob.vercel-storage.com/list'
+                            req_all = urllib.request.Request(list_url_all, headers=headers)
+                            with urllib.request.urlopen(req_all) as response_all:
+                                response_text_all = response_all.read().decode('utf-8')
+                                result_all = json.loads(response_text_all)
+                                all_blobs_all = result_all.get('blobs', result_all.get('files', []))
+                                print(f"Blob Storage list response (REST GET, NO prefix): {len(all_blobs_all)} total blobs")
+                                if len(all_blobs_all) > 0:
+                                    print(f"All blobs sample (first 3): {json.dumps(all_blobs_all[:3], indent=2)}")
                         except urllib.error.HTTPError as e:
                             # If GET fails with 404, try POST
                             if e.code == 404:
@@ -138,8 +158,10 @@ class handler(BaseHTTPRequestHandler):
                     # Include debug info in response (remove in production)
                     debug_info = {
                         'blobs_found': len(all_blobs),
+                        'total_blobs_all': len(all_blobs_all) if 'all_blobs_all' in locals() else 0,
                         'using_package': VERCEL_BLOB_AVAILABLE,
-                        'sample_blobs': all_blobs[:3] if len(all_blobs) > 0 else []
+                        'sample_blobs': all_blobs[:3] if len(all_blobs) > 0 else [],
+                        'all_blobs_sample': all_blobs_all[:3] if 'all_blobs_all' in locals() and len(all_blobs_all) > 0 else []
                     }
                     
                     self.send_response(200)
