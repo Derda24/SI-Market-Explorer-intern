@@ -94,10 +94,31 @@ class handler(BaseHTTPRequestHandler):
     
     def do_POST(self):
         try:
-            # Read request body
-            content_length = int(self.headers.get('Content-Length', 0))
-            body = self.rfile.read(content_length)
-            body_data = json.loads(body.decode('utf-8'))
+            # Read request body with error handling
+            try:
+                content_length = int(self.headers.get('Content-Length', 0))
+                if content_length == 0:
+                    self.send_response(400)
+                    self.send_header('Content-Type', 'application/json')
+                    self.send_header('Access-Control-Allow-Origin', '*')
+                    self.end_headers()
+                    self.wfile.write(json.dumps({
+                        'success': False,
+                        'error': 'Request body is empty'
+                    }).encode('utf-8'))
+                    return
+                body = self.rfile.read(content_length)
+                body_data = json.loads(body.decode('utf-8'))
+            except (ValueError, json.JSONDecodeError) as e:
+                self.send_response(400)
+                self.send_header('Content-Type', 'application/json')
+                self.send_header('Access-Control-Allow-Origin', '*')
+                self.end_headers()
+                self.wfile.write(json.dumps({
+                    'success': False,
+                    'error': f'Invalid request format: {str(e)}'
+                }).encode('utf-8'))
+                return
             
             # Get file data
             filename = body_data.get('filename')
