@@ -206,10 +206,14 @@ class handler(BaseHTTPRequestHandler):
                 # Blob path: interns/{intern_name}/products_YYYY_MM_DD.csv
                 blob_path = f"interns/{intern_name}/{standard_filename}"
                 
+                print(f"Attempting to save file to Blob Storage: {blob_path}")
+                
                 # Use Vercel Blob REST API (more reliable than package)
                 blob_token = os.environ.get('BLOB_READ_WRITE_TOKEN')
                 if not blob_token:
                     raise Exception("BLOB_READ_WRITE_TOKEN environment variable not set. Make sure Vercel Blob is enabled in your project.")
+                
+                print(f"BLOB_READ_WRITE_TOKEN found: {blob_token[:20] if blob_token else 'None'}...")
                 
                 # Upload via REST API
                 upload_url = 'https://blob.vercel-storage.com/put'
@@ -217,24 +221,34 @@ class handler(BaseHTTPRequestHandler):
                     'Authorization': f'Bearer {blob_token}',
                     'Content-Type': 'application/json'
                 }
-                data = json.dumps({
+                upload_data = {
                     'pathname': blob_path,
                     'content': csv_content,
                     'contentType': 'text/csv',
                     'addRandomSuffix': False
-                }).encode('utf-8')
+                }
+                print(f"Upload data size: {len(csv_content)} bytes")
+                print(f"Upload URL: {upload_url}")
+                print(f"Upload pathname: {blob_path}")
                 
+                data = json.dumps(upload_data).encode('utf-8')
+                
+                print("Making request to Blob Storage API...")
                 req = urllib.request.Request(upload_url, data=data, headers=headers)
                 with urllib.request.urlopen(req) as response:
                     result = json.loads(response.read().decode('utf-8'))
+                    print(f"Blob Storage upload response: {json.dumps(result, indent=2)}")
                     blob_url = result.get('url')
                     if not blob_url:
                         raise Exception(f"Upload failed: {result}")
+                    print(f"Successfully saved to Blob Storage: {blob_path} -> {blob_url}")
                 
             except Exception as save_error:
                 # Log error but continue - file is validated
                 import traceback
-                print(f"ERROR: Failed to save file to Blob Storage: {str(save_error)}")
+                save_error_message = str(save_error)
+                print(f"ERROR: Failed to save file to Blob Storage: {save_error_message}")
+                print(f"Traceback: {traceback.format_exc()}")
                 # Continue anyway - validation passed
             
             # Prepare response data
@@ -244,6 +258,14 @@ class handler(BaseHTTPRequestHandler):
                 'summary': summary,
                 'validation': csv_validation
             }
+            
+            # Include blob storage status in response for debugging
+            if save_error_message:
+                response_data['blob_storage_error'] = save_error_message
+                response_data['blob_storage_warning'] = 'File validated but not saved to Blob Storage'
+            elif blob_url:
+                response_data['blob_storage_success'] = True
+                response_data['blob_url'] = blob_url
             
             # Ensure all values are JSON-serializable
             try:
