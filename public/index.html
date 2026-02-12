@@ -515,6 +515,7 @@
             try {
                 const response = await fetch('/api/files?action=list');
                 const data = await response.json();
+                console.log('Dashboard API response:', data); // Debug log
                 
                 let html = '<div class="stats">';
                 html += '<div class="stat-card"><div class="stat-value">' + data.interns.length + '</div><div class="stat-label">Total interns</div></div>';
