@@ -7,7 +7,15 @@ import json
 import os
 from urllib.parse import urlparse, parse_qs, quote
 from http.server import BaseHTTPRequestHandler
-import urllib.request
+
+# Use vercel_blob package for Blob Storage operations
+try:
+    import vercel_blob
+    VERCEL_BLOB_AVAILABLE = True
+except ImportError:
+    VERCEL_BLOB_AVAILABLE = False
+    import urllib.request
+    import urllib.error
 
 class handler(BaseHTTPRequestHandler):
     """Vercel serverless function handler for file operations"""
@@ -29,27 +37,44 @@ class handler(BaseHTTPRequestHandler):
             if action == 'list':
                 # List all files from Vercel Blob Storage
                 try:
-                    # Use REST API directly (more reliable)
                     blob_token = os.environ.get('BLOB_READ_WRITE_TOKEN')
                     if not blob_token:
                         raise Exception("BLOB_READ_WRITE_TOKEN not found")
                     
-                    list_url = 'https://blob.vercel-storage.com/list?prefix=interns/'
-                    headers = {'Authorization': f'Bearer {blob_token}'}
-                    req = urllib.request.Request(list_url, headers=headers)
-                    with urllib.request.urlopen(req) as response:
-                        response_text = response.read().decode('utf-8')
-                        result = json.loads(response_text)
-                        
-                        # Debug: log the response structure
-                        print(f"Blob Storage list response: {json.dumps(result, indent=2)}")
-                        
-                        # Handle different possible response formats
-                        all_blobs = []
-                        if isinstance(result, dict):
-                            all_blobs = result.get('blobs', result.get('files', []))
-                        elif isinstance(result, list):
-                            all_blobs = result
+                    # Use vercel_blob package if available, otherwise fallback to REST API
+                    if VERCEL_BLOB_AVAILABLE:
+                        # Use the vercel_blob package
+                        result = vercel_blob.list({'prefix': 'interns/'})
+                        all_blobs = result.get('blobs', [])
+                        print(f"Blob Storage list response (via package): {len(all_blobs)} blobs found")
+                    else:
+                        # Fallback: Try REST API with GET first
+                        try:
+                            list_url = 'https://blob.vercel-storage.com/list?prefix=interns/'
+                            headers = {'Authorization': f'Bearer {blob_token}'}
+                            req = urllib.request.Request(list_url, headers=headers)
+                            with urllib.request.urlopen(req) as response:
+                                response_text = response.read().decode('utf-8')
+                                result = json.loads(response_text)
+                                print(f"Blob Storage list response (REST GET): {json.dumps(result, indent=2)}")
+                                all_blobs = result.get('blobs', result.get('files', []))
+                        except urllib.error.HTTPError as e:
+                            # If GET fails with 404, try POST
+                            if e.code == 404:
+                                list_url = 'https://blob.vercel-storage.com/list'
+                                headers = {
+                                    'Authorization': f'Bearer {blob_token}',
+                                    'Content-Type': 'application/json'
+                                }
+                                data = json.dumps({'prefix': 'interns/'}).encode('utf-8')
+                                req = urllib.request.Request(list_url, data=data, headers=headers, method='POST')
+                                with urllib.request.urlopen(req) as response:
+                                    response_text = response.read().decode('utf-8')
+                                    result = json.loads(response_text)
+                                    print(f"Blob Storage list response (REST POST): {json.dumps(result, indent=2)}")
+                                    all_blobs = result.get('blobs', result.get('files', []))
+                            else:
+                                raise
                     
                     # Organize blobs by intern name
                     interns_dict = {}
@@ -139,23 +164,31 @@ class handler(BaseHTTPRequestHandler):
                     return
                 
                 try:
-                    # Use REST API directly
                     blob_token = os.environ.get('BLOB_READ_WRITE_TOKEN')
                     if not blob_token:
                         raise Exception("BLOB_READ_WRITE_TOKEN not found")
                     
                     filename = os.path.basename(file_path)
                     
-                    # Get blob info
-                    head_url = f'https://blob.vercel-storage.com/head?pathname={quote(file_path)}'
-                    headers = {'Authorization': f'Bearer {blob_token}'}
-                    req = urllib.request.Request(head_url, headers=headers)
-                    with urllib.request.urlopen(req) as response:
-                        blob_info = json.loads(response.read().decode('utf-8'))
+                    # Use vercel_blob package if available
+                    if VERCEL_BLOB_AVAILABLE:
+                        blob_info = vercel_blob.head(file_path)
                         download_url = blob_info.get('downloadUrl') or blob_info.get('url')
                         if download_url:
+                            import urllib.request
                             with urllib.request.urlopen(download_url) as download_response:
                                 content = download_response.read().decode('utf-8')
+                    else:
+                        # Fallback: Use REST API
+                        head_url = f'https://blob.vercel-storage.com/head?pathname={quote(file_path)}'
+                        headers = {'Authorization': f'Bearer {blob_token}'}
+                        req = urllib.request.Request(head_url, headers=headers)
+                        with urllib.request.urlopen(req) as response:
+                            blob_info = json.loads(response.read().decode('utf-8'))
+                            download_url = blob_info.get('downloadUrl') or blob_info.get('url')
+                            if download_url:
+                                with urllib.request.urlopen(download_url) as download_response:
+                                    content = download_response.read().decode('utf-8')
                     
                     if content:
                         self.send_response(200)
