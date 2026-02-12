@@ -10,6 +10,7 @@ from datetime import datetime
 from io import StringIO
 import os
 from typing import Dict, List, Optional
+
 import urllib.request
 
 # Required CSV columns
@@ -203,7 +204,6 @@ class handler(BaseHTTPRequestHandler):
                 
                 # Blob path: interns/{intern_name}/products_YYYY_MM_DD.csv
                 blob_path = f"interns/{intern_name}/{standard_filename}"
-                print(f"Attempting to save file to Blob Storage: {blob_path}")
                 
                 # Use Vercel Blob REST API (more reliable than package)
                 blob_token = os.environ.get('BLOB_READ_WRITE_TOKEN')
@@ -227,12 +227,17 @@ class handler(BaseHTTPRequestHandler):
                 with urllib.request.urlopen(req) as response:
                     result = json.loads(response.read().decode('utf-8'))
                     blob_url = result.get('url')
+                    print(f"Blob Storage upload response: {json.dumps(result, indent=2)}")
+                    print(f"Uploaded to path: {blob_path}")
                     if not blob_url:
                         raise Exception(f"Upload failed: {result}")
+                    print(f"Successfully saved to Blob Storage: {blob_path} -> {blob_url}")
                 
             except Exception as save_error:
                 # Log error but continue - file is validated
+                import traceback
                 print(f"ERROR: Failed to save file to Blob Storage: {str(save_error)}")
+                print(f"Traceback: {traceback.format_exc()}")
                 # Continue anyway - validation passed
             
             # Prepare response data

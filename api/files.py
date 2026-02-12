@@ -49,15 +49,21 @@ class handler(BaseHTTPRequestHandler):
                     # Use vercel_blob package if available, otherwise fallback to REST API
                     if VERCEL_BLOB_AVAILABLE:
                         # Use the vercel_blob package
+                        print("Using vercel_blob package for listing")
                         # Try with prefix first
                         result = vercel_blob.list({'prefix': 'interns/'})
+                        print(f"List result with prefix: {json.dumps(result, indent=2, default=str)}")
                         all_blobs = result.get('blobs', [])
+                        print(f"Found {len(all_blobs)} blobs with prefix 'interns/'")
                         
                         # Also try without prefix to see ALL blobs
                         result_all = vercel_blob.list({})
+                        print(f"List result without prefix: {json.dumps(result_all, indent=2, default=str)}")
                         all_blobs_all = result_all.get('blobs', [])
+                        print(f"Found {len(all_blobs_all)} total blobs")
                     else:
                         # Fallback: Try REST API with GET first
+                        print("Using REST API fallback for listing")
                         try:
                             list_url = 'https://blob.vercel-storage.com/list?prefix=interns/'
                             headers = {'Authorization': f'Bearer {blob_token}'}
@@ -65,7 +71,9 @@ class handler(BaseHTTPRequestHandler):
                             with urllib.request.urlopen(req) as response:
                                 response_text = response.read().decode('utf-8')
                                 result = json.loads(response_text)
+                                print(f"REST API list result with prefix: {json.dumps(result, indent=2)}")
                                 all_blobs = result.get('blobs', result.get('files', []))
+                                print(f"Found {len(all_blobs)} blobs with prefix")
                             
                             # Also try without prefix
                             list_url_all = 'https://blob.vercel-storage.com/list'
@@ -73,8 +81,11 @@ class handler(BaseHTTPRequestHandler):
                             with urllib.request.urlopen(req_all) as response_all:
                                 response_text_all = response_all.read().decode('utf-8')
                                 result_all = json.loads(response_text_all)
+                                print(f"REST API list result without prefix: {json.dumps(result_all, indent=2)}")
                                 all_blobs_all = result_all.get('blobs', result_all.get('files', []))
+                                print(f"Found {len(all_blobs_all)} total blobs")
                         except urllib.error.HTTPError as e:
+                            print(f"REST API GET failed with {e.code}: {e.reason}")
                             # If GET fails with 404, try POST
                             if e.code == 404:
                                 list_url = 'https://blob.vercel-storage.com/list'
@@ -87,6 +98,7 @@ class handler(BaseHTTPRequestHandler):
                                 with urllib.request.urlopen(req) as response:
                                     response_text = response.read().decode('utf-8')
                                     result = json.loads(response_text)
+                                    print(f"REST API POST list result with prefix: {json.dumps(result, indent=2)}")
                                     all_blobs = result.get('blobs', result.get('files', []))
                                 
                                 # Also try without prefix
@@ -95,9 +107,15 @@ class handler(BaseHTTPRequestHandler):
                                 with urllib.request.urlopen(req_all) as response_all:
                                     response_text_all = response_all.read().decode('utf-8')
                                     result_all = json.loads(response_text_all)
+                                    print(f"REST API POST list result without prefix: {json.dumps(result_all, indent=2)}")
                                     all_blobs_all = result_all.get('blobs', result_all.get('files', []))
                             else:
                                 raise
+                        except Exception as e:
+                            print(f"Error in REST API fallback: {str(e)}")
+                            import traceback
+                            print(traceback.format_exc())
+                            raise
                     
                     # Organize blobs by intern name
                     interns_dict = {}
