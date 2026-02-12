@@ -53,31 +53,40 @@ def _validate_csv_df(df: pd.DataFrame) -> Dict[str, any]:
     return {
         'valid': len(errors) == 0,
         'errors': errors,
-        'row_count': len(df),
-        'columns': list(df.columns)
+        'row_count': int(len(df)),
+        'columns': [str(col) for col in df.columns]
     }
 
 
 def _summary_from_df(df: pd.DataFrame) -> Dict:
     """Build upload summary from an already-parsed DataFrame."""
     summary = {
-        'total_products': len(df),
-        'columns': list(df.columns),
-        'required_columns_present': all(col in df.columns for col in REQUIRED_COLUMNS),
-        'optional_columns_present': [col for col in OPTIONAL_COLUMNS if col in df.columns]
+        'total_products': int(len(df)),
+        'columns': [str(col) for col in df.columns],
+        'required_columns_present': bool(all(col in df.columns for col in REQUIRED_COLUMNS)),
+        'optional_columns_present': [str(col) for col in OPTIONAL_COLUMNS if col in df.columns]
     }
     if 'category' in df.columns:
         summary['unique_categories'] = int(df['category'].nunique())
     if 'price' in df.columns:
         try:
             prices = pd.to_numeric(df['price'], errors='coerce')
-            summary['avg_price'] = float(prices.mean())
-            summary['min_price'] = float(prices.min())
-            summary['max_price'] = float(prices.max())
+            mean_val = prices.mean()
+            min_val = prices.min()
+            max_val = prices.max()
+            # Handle NaN values
+            if pd.notna(mean_val):
+                summary['avg_price'] = float(mean_val)
+            if pd.notna(min_val):
+                summary['min_price'] = float(min_val)
+            if pd.notna(max_val):
+                summary['max_price'] = float(max_val)
         except Exception:
             pass
     if 'city' in df.columns:
-        summary['cities'] = df['city'].unique().tolist()
+        # Convert numpy array to list and ensure all values are strings
+        cities = df['city'].unique().tolist()
+        summary['cities'] = [str(c) for c in cities if pd.notna(c)]
     return summary
 
 from http.server import BaseHTTPRequestHandler
@@ -183,16 +192,32 @@ class handler(BaseHTTPRequestHandler):
             # For now, return success - actual storage should be implemented
             # based on your storage solution (Vercel Blob, Supabase Storage, etc.)
             
-            self.send_response(200)
-            self.send_header('Content-Type', 'application/json')
-            self.send_header('Access-Control-Allow-Origin', '*')
-            self.end_headers()
-            self.wfile.write(json.dumps({
+            # Prepare response data
+            response_data = {
                 'success': True,
                 'message': f'File {filename} validated successfully',
                 'summary': summary,
                 'validation': csv_validation
-            }).encode('utf-8'))
+            }
+            
+            # Ensure all values are JSON-serializable
+            try:
+                response_json = json.dumps(response_data, default=str)
+            except (TypeError, ValueError) as json_error:
+                # If JSON serialization fails, return a simpler response
+                response_data = {
+                    'success': True,
+                    'message': f'File {filename} validated successfully',
+                    'row_count': csv_validation.get('row_count', 0),
+                    'columns': csv_validation.get('columns', [])
+                }
+                response_json = json.dumps(response_data, default=str)
+            
+            self.send_response(200)
+            self.send_header('Content-Type', 'application/json')
+            self.send_header('Access-Control-Allow-Origin', '*')
+            self.end_headers()
+            self.wfile.write(response_json.encode('utf-8'))
             
         except Exception as e:
             self.send_response(500)
