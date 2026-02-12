@@ -188,9 +188,38 @@ class handler(BaseHTTPRequestHandler):
             # Get summary from same DataFrame (no second parse)
             summary = _summary_from_df(df)
             
-            # Save file (in production, use Vercel Blob Storage or external storage)
-            # For now, return success - actual storage should be implemented
-            # based on your storage solution (Vercel Blob, Supabase Storage, etc.)
+            # Save file to interns directory
+            # Note: On Vercel serverless, filesystem is read-only except /tmp
+            # For production, use Vercel Blob Storage or external storage
+            try:
+                # Try to save to interns directory (works locally, may not persist on Vercel)
+                base_dir = os.path.join(os.getcwd(), 'interns')
+                intern_dir = os.path.join(base_dir, intern_name)
+                
+                # Create directories if they don't exist
+                os.makedirs(intern_dir, exist_ok=True)
+                
+                # Extract date from filename to ensure consistent naming
+                match = re.search(r'products_(\d{4})_(\d{2})_(\d{2})\.csv$', filename, re.IGNORECASE)
+                if match:
+                    # Use the standard format: products_YYYY_MM_DD.csv
+                    standard_filename = f"products_{match.group(1)}_{match.group(2)}_{match.group(3)}.csv"
+                else:
+                    # Fallback to original filename if pattern doesn't match
+                    standard_filename = filename
+                
+                file_path = os.path.join(intern_dir, standard_filename)
+                
+                # Write CSV content to file
+                with open(file_path, 'w', encoding='utf-8') as f:
+                    f.write(csv_content)
+                
+            except Exception as save_error:
+                # If file saving fails (e.g., read-only filesystem on Vercel), log but continue
+                # The file is validated, so we return success anyway
+                # In production, implement Vercel Blob Storage here
+                print(f"Warning: Could not save file to filesystem: {str(save_error)}")
+                print("Note: On Vercel serverless, use Vercel Blob Storage for persistent file storage")
             
             # Prepare response data
             response_data = {
