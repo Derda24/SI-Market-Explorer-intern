@@ -45,24 +45,14 @@ class handler(BaseHTTPRequestHandler):
                     # Use vercel_blob package if available, otherwise fallback to REST API
                     if VERCEL_BLOB_AVAILABLE:
                         # Use the vercel_blob package
-                        print("Using vercel_blob package for listing")
                         # Try with prefix first
                         result = vercel_blob.list({'prefix': 'interns/'})
-                        print(f"Full list result (with prefix): {json.dumps(result, indent=2, default=str)}")
                         all_blobs = result.get('blobs', [])
-                        print(f"Blob Storage list response (via package, with prefix): {len(all_blobs)} blobs found")
                         
                         # Also try without prefix to see ALL blobs
                         result_all = vercel_blob.list({})
                         all_blobs_all = result_all.get('blobs', [])
-                        print(f"Blob Storage list response (via package, NO prefix): {len(all_blobs_all)} total blobs found")
-                        if len(all_blobs_all) > 0:
-                            print(f"All blobs sample (first 3): {json.dumps(all_blobs_all[:3], indent=2, default=str)}")
-                        
-                        if len(all_blobs) > 0:
-                            print(f"First blob sample (with prefix): {json.dumps(all_blobs[0], indent=2, default=str)}")
                     else:
-                        print("vercel_blob package NOT available, using REST API fallback")
                         # Fallback: Try REST API with GET first
                         try:
                             list_url = 'https://blob.vercel-storage.com/list?prefix=interns/'
@@ -71,7 +61,6 @@ class handler(BaseHTTPRequestHandler):
                             with urllib.request.urlopen(req) as response:
                                 response_text = response.read().decode('utf-8')
                                 result = json.loads(response_text)
-                                print(f"Blob Storage list response (REST GET, with prefix): {json.dumps(result, indent=2)}")
                                 all_blobs = result.get('blobs', result.get('files', []))
                             
                             # Also try without prefix
@@ -81,9 +70,6 @@ class handler(BaseHTTPRequestHandler):
                                 response_text_all = response_all.read().decode('utf-8')
                                 result_all = json.loads(response_text_all)
                                 all_blobs_all = result_all.get('blobs', result_all.get('files', []))
-                                print(f"Blob Storage list response (REST GET, NO prefix): {len(all_blobs_all)} total blobs")
-                                if len(all_blobs_all) > 0:
-                                    print(f"All blobs sample (first 3): {json.dumps(all_blobs_all[:3], indent=2)}")
                         except urllib.error.HTTPError as e:
                             # If GET fails with 404, try POST
                             if e.code == 404:
@@ -97,13 +83,9 @@ class handler(BaseHTTPRequestHandler):
                                 with urllib.request.urlopen(req) as response:
                                     response_text = response.read().decode('utf-8')
                                     result = json.loads(response_text)
-                                    print(f"Blob Storage list response (REST POST): {json.dumps(result, indent=2)}")
                                     all_blobs = result.get('blobs', result.get('files', []))
                             else:
                                 raise
-                    
-                    # Debug: log total blobs found
-                    print(f"Total blobs retrieved: {len(all_blobs)}")
                     
                     # Organize blobs by intern name
                     interns_dict = {}
@@ -120,15 +102,11 @@ class handler(BaseHTTPRequestHandler):
                                 blobs_to_process.append(blob)
                                 seen_pathnames.add(pathname)
                     
-                    for idx, blob in enumerate(blobs_to_process):
-                        if idx < 3:  # Log first 3 blobs for debugging
-                            print(f"Processing blob {idx}: {json.dumps(blob, indent=2, default=str)}")
+                    for blob in blobs_to_process:
                         # Try different possible field names for pathname
                         pathname = blob.get('pathname') or blob.get('path') or blob.get('key') or ''
                         
-                        # Debug: log blob structure
                         if not pathname:
-                            print(f"Blob missing pathname: {json.dumps(blob)}")
                             continue
                         
                         intern_name = None
@@ -153,8 +131,7 @@ class handler(BaseHTTPRequestHandler):
                                 # Fallback: if filename starts with products_, use a default intern name
                                 # Or try to extract from the beginning of the filename
                                 if pathname.startswith('products_'):
-                                    # No intern name in filename, skip or use "unknown"
-                                    print(f"Skipping blob with no intern name: {pathname}")
+                                    # No intern name in filename, skip
                                     continue
                                 else:
                                     # Try to extract: assume format is {name}_products_*.csv
@@ -176,7 +153,6 @@ class handler(BaseHTTPRequestHandler):
                                 'downloadUrl': blob.get('downloadUrl') or blob.get('url')
                             })
                             total_files += 1
-                            print(f"Added file: {intern_name}/{filename} (from pathname: {pathname})")
                     
                     # Convert to list format
                     interns = []
@@ -190,20 +166,6 @@ class handler(BaseHTTPRequestHandler):
                     # Sort interns by name
                     interns.sort(key=lambda x: x['name'])
                     
-                    # Debug: log final result
-                    print(f"Final result: {len(interns)} interns, {total_files} total files")
-                    if len(interns) > 0:
-                        print(f"Interns: {[i['name'] for i in interns]}")
-                    
-                    # Include debug info in response (remove in production)
-                    debug_info = {
-                        'blobs_found': len(all_blobs),
-                        'total_blobs_all': len(all_blobs_all) if 'all_blobs_all' in locals() else 0,
-                        'using_package': VERCEL_BLOB_AVAILABLE,
-                        'sample_blobs': all_blobs[:3] if len(all_blobs) > 0 else [],
-                        'all_blobs_sample': all_blobs_all[:3] if 'all_blobs_all' in locals() and len(all_blobs_all) > 0 else []
-                    }
-                    
                     self.send_response(200)
                     self.send_header('Content-Type', 'application/json')
                     self.send_header('Access-Control-Allow-Origin', '*')
@@ -211,18 +173,12 @@ class handler(BaseHTTPRequestHandler):
                     self.wfile.write(json.dumps({
                         'interns': interns,
                         'total_files': total_files,
-                        'total_products': 0,
-                        'debug': debug_info
+                        'total_products': 0
                     }).encode('utf-8'))
                     
                 except Exception as e:
-                    # Log detailed error for debugging
-                    import traceback
-                    error_details = {
-                        'error': str(e),
-                        'traceback': traceback.format_exc()
-                    }
-                    print(f"Error listing blobs: {json.dumps(error_details)}")
+                    # Log error for debugging (keep minimal logging for errors)
+                    print(f"Error listing blobs: {str(e)}")
                     
                     # Return 200 with error info so frontend can display it
                     self.send_response(200)
@@ -233,8 +189,7 @@ class handler(BaseHTTPRequestHandler):
                         'interns': [],
                         'total_files': 0,
                         'total_products': 0,
-                        'error': str(e),
-                        'debug': 'Check Vercel function logs for details'
+                        'error': str(e)
                     }).encode('utf-8'))
             
             elif action == 'download':

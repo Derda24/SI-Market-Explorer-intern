@@ -515,7 +515,6 @@
             try {
                 const response = await fetch('/api/files?action=list');
                 const data = await response.json();
-                console.log('Dashboard API response:', data); // Debug log
                 
                 let html = '<div class="stats">';
                 html += '<div class="stat-card"><div class="stat-value">' + data.interns.length + '</div><div class="stat-label">Total interns</div></div>';
@@ -524,21 +523,6 @@
                 // Show error if present
                 if (data.error) {
                     html += '<div class="alert alert-error">Error loading files: ' + data.error + '</div>';
-                }
-                
-                // Show debug info if present (for troubleshooting)
-                if (data.debug) {
-                    html += '<div class="alert alert-info" style="font-size: 0.75rem; padding: 10px;">';
-                    html += '<strong>Debug:</strong> Found ' + data.debug.blobs_found + ' blobs with prefix "interns/"';
-                    html += ' | Total blobs (no prefix): ' + (data.debug.total_blobs_all || 0);
-                    html += ' | Using package: ' + data.debug.using_package;
-                    if (data.debug.sample_blobs && data.debug.sample_blobs.length > 0) {
-                        html += '<br><strong>Sample blob (with prefix):</strong> ' + JSON.stringify(data.debug.sample_blobs[0]).substring(0, 300);
-                    }
-                    if (data.debug.all_blobs_sample && data.debug.all_blobs_sample.length > 0) {
-                        html += '<br><strong>Sample blob (all blobs):</strong> ' + JSON.stringify(data.debug.all_blobs_sample[0]).substring(0, 300);
-                    }
-                    html += '</div>';
                 }
                 
                 html += '<div class="dashboard-section"><h3>Intern files</h3>';

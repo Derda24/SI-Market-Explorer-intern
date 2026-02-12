@@ -227,16 +227,12 @@ class handler(BaseHTTPRequestHandler):
                 with urllib.request.urlopen(req) as response:
                     result = json.loads(response.read().decode('utf-8'))
                     blob_url = result.get('url')
-                    print(f"Blob Storage upload result: {json.dumps(result, indent=2)}")
                     if not blob_url:
                         raise Exception(f"Upload failed: {result}")
-                    print(f"Successfully saved to Blob Storage: {blob_path} -> {blob_url}")
                 
             except Exception as save_error:
                 # Log error but continue - file is validated
-                import traceback
                 print(f"ERROR: Failed to save file to Blob Storage: {str(save_error)}")
-                print(f"Traceback: {traceback.format_exc()}")
                 # Continue anyway - validation passed
             
             # Prepare response data
