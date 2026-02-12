@@ -10,6 +10,7 @@ from datetime import datetime
 from io import StringIO
 import os
 from typing import Dict, List, Optional
+import urllib.request
 
 # Required CSV columns
 REQUIRED_COLUMNS = ['name', 'price', 'category', 'store_id', 'city', 'created_at']
@@ -188,17 +189,9 @@ class handler(BaseHTTPRequestHandler):
             # Get summary from same DataFrame (no second parse)
             summary = _summary_from_df(df)
             
-            # Save file to interns directory
-            # Note: On Vercel serverless, filesystem is read-only except /tmp
-            # For production, use Vercel Blob Storage or external storage
+            # Save file to Vercel Blob Storage
+            blob_url = None
             try:
-                # Try to save to interns directory (works locally, may not persist on Vercel)
-                base_dir = os.path.join(os.getcwd(), 'interns')
-                intern_dir = os.path.join(base_dir, intern_name)
-                
-                # Create directories if they don't exist
-                os.makedirs(intern_dir, exist_ok=True)
-                
                 # Extract date from filename to ensure consistent naming
                 match = re.search(r'products_(\d{4})_(\d{2})_(\d{2})\.csv$', filename, re.IGNORECASE)
                 if match:
@@ -208,18 +201,38 @@ class handler(BaseHTTPRequestHandler):
                     # Fallback to original filename if pattern doesn't match
                     standard_filename = filename
                 
-                file_path = os.path.join(intern_dir, standard_filename)
+                # Blob path: interns/{intern_name}/products_YYYY_MM_DD.csv
+                blob_path = f"interns/{intern_name}/{standard_filename}"
                 
-                # Write CSV content to file
-                with open(file_path, 'w', encoding='utf-8') as f:
-                    f.write(csv_content)
+                # Use Vercel Blob REST API (more reliable than package)
+                blob_token = os.environ.get('BLOB_READ_WRITE_TOKEN')
+                if not blob_token:
+                    raise Exception("BLOB_READ_WRITE_TOKEN environment variable not set. Make sure Vercel Blob is enabled in your project.")
+                
+                # Upload via REST API
+                upload_url = 'https://blob.vercel-storage.com/put'
+                headers = {
+                    'Authorization': f'Bearer {blob_token}',
+                    'Content-Type': 'application/json'
+                }
+                data = json.dumps({
+                    'pathname': blob_path,
+                    'content': csv_content,
+                    'contentType': 'text/csv',
+                    'addRandomSuffix': False
+                }).encode('utf-8')
+                
+                req = urllib.request.Request(upload_url, data=data, headers=headers)
+                with urllib.request.urlopen(req) as response:
+                    result = json.loads(response.read().decode('utf-8'))
+                    blob_url = result.get('url')
+                    if not blob_url:
+                        raise Exception(f"Upload failed: {result}")
                 
             except Exception as save_error:
-                # If file saving fails (e.g., read-only filesystem on Vercel), log but continue
-                # The file is validated, so we return success anyway
-                # In production, implement Vercel Blob Storage here
-                print(f"Warning: Could not save file to filesystem: {str(save_error)}")
-                print("Note: On Vercel serverless, use Vercel Blob Storage for persistent file storage")
+                # Log error but continue - file is validated
+                print(f"Warning: Failed to save file to Blob Storage: {str(save_error)}")
+                # Continue anyway - validation passed
             
             # Prepare response data
             response_data = {

@@ -5,8 +5,9 @@ Handles file listing, downloading, and admin operations
 
 import json
 import os
-from urllib.parse import urlparse, parse_qs
+from urllib.parse import urlparse, parse_qs, quote
 from http.server import BaseHTTPRequestHandler
+import urllib.request
 
 class handler(BaseHTTPRequestHandler):
     """Vercel serverless function handler for file operations"""
@@ -26,11 +27,71 @@ class handler(BaseHTTPRequestHandler):
             action = query_params.get('action', ['list'])[0]
             
             if action == 'list':
-                # List all intern directories and files
-                # In production, this would query your storage solution
-                interns_dir = os.path.join(os.getcwd(), 'interns')
-                
-                if not os.path.exists(interns_dir):
+                # List all files from Vercel Blob Storage
+                try:
+                    # Use REST API directly (more reliable)
+                    blob_token = os.environ.get('BLOB_READ_WRITE_TOKEN')
+                    if not blob_token:
+                        raise Exception("BLOB_READ_WRITE_TOKEN not found")
+                    
+                    list_url = 'https://blob.vercel-storage.com/list?prefix=interns/'
+                    headers = {'Authorization': f'Bearer {blob_token}'}
+                    req = urllib.request.Request(list_url, headers=headers)
+                    with urllib.request.urlopen(req) as response:
+                        result = json.loads(response.read().decode('utf-8'))
+                        all_blobs = result.get('blobs', [])
+                    
+                    # Organize blobs by intern name
+                    interns_dict = {}
+                    total_files = 0
+                    
+                    for blob in all_blobs:
+                        pathname = blob.get('pathname', '')
+                        # Path format: interns/{intern_name}/products_YYYY_MM_DD.csv
+                        if pathname.startswith('interns/') and pathname.endswith('.csv'):
+                            parts = pathname.split('/')
+                            if len(parts) >= 3:
+                                intern_name = parts[1]
+                                filename = parts[2]
+                                
+                                if filename.startswith('products_') and filename.endswith('.csv'):
+                                    if intern_name not in interns_dict:
+                                        interns_dict[intern_name] = []
+                                    
+                                    interns_dict[intern_name].append({
+                                        'filename': filename,
+                                        'date': filename.replace('products_', '').replace('.csv', ''),
+                                        'path': pathname,
+                                        'url': blob.get('url'),
+                                        'downloadUrl': blob.get('downloadUrl')
+                                    })
+                                    total_files += 1
+                    
+                    # Convert to list format
+                    interns = []
+                    for intern_name, files in interns_dict.items():
+                        interns.append({
+                            'name': intern_name,
+                            'files': files,
+                            'file_count': len(files)
+                        })
+                    
+                    # Sort interns by name
+                    interns.sort(key=lambda x: x['name'])
+                    
+                    self.send_response(200)
+                    self.send_header('Content-Type', 'application/json')
+                    self.send_header('Access-Control-Allow-Origin', '*')
+                    self.end_headers()
+                    self.wfile.write(json.dumps({
+                        'interns': interns,
+                        'total_files': total_files,
+                        'total_products': 0
+                    }).encode('utf-8'))
+                    
+                except Exception as e:
+                    # If Blob Storage fails, return empty list
+                    print(f"Error listing blobs: {str(e)}")
                     self.send_response(200)
                     self.send_header('Content-Type', 'application/json')
                     self.send_header('Access-Control-Allow-Origin', '*')
@@ -40,45 +101,9 @@ class handler(BaseHTTPRequestHandler):
                         'total_files': 0,
                         'total_products': 0
                     }).encode('utf-8'))
-                    return
-                
-                # Scan directories
-                interns = []
-                total_files = 0
-                total_products = 0
-                
-                for intern_dir in os.listdir(interns_dir):
-                    intern_path = os.path.join(interns_dir, intern_dir)
-                    if os.path.isdir(intern_path):
-                        files = []
-                        for file in os.listdir(intern_path):
-                            if file.startswith('products_') and file.endswith('.csv'):
-                                file_path = os.path.join(intern_path, file)
-                                files.append({
-                                    'filename': file,
-                                    'date': file.replace('products_', '').replace('.csv', ''),
-                                    'path': file_path
-                                })
-                                total_files += 1
-                        
-                        interns.append({
-                            'name': intern_dir,
-                            'files': files,
-                            'file_count': len(files)
-                        })
-                
-                self.send_response(200)
-                self.send_header('Content-Type', 'application/json')
-                self.send_header('Access-Control-Allow-Origin', '*')
-                self.end_headers()
-                self.wfile.write(json.dumps({
-                    'interns': interns,
-                    'total_files': total_files,
-                    'total_products': total_products
-                }).encode('utf-8'))
             
             elif action == 'download':
-                # Download specific file
+                # Download specific file from Vercel Blob Storage
                 file_path = query_params.get('path', [None])[0]
                 if not file_path:
                     self.send_response(400)
@@ -88,22 +113,45 @@ class handler(BaseHTTPRequestHandler):
                     self.wfile.write(json.dumps({'error': 'Missing file path'}).encode('utf-8'))
                     return
                 
-                # In production, read from storage
-                if os.path.exists(file_path):
-                    with open(file_path, 'r', encoding='utf-8') as f:
-                        content = f.read()
-                    self.send_response(200)
-                    self.send_header('Content-Type', 'text/csv')
-                    self.send_header('Access-Control-Allow-Origin', '*')
-                    self.send_header('Content-Disposition', f'attachment; filename="{os.path.basename(file_path)}"')
-                    self.end_headers()
-                    self.wfile.write(content.encode('utf-8'))
-                else:
-                    self.send_response(404)
+                try:
+                    # Use REST API directly
+                    blob_token = os.environ.get('BLOB_READ_WRITE_TOKEN')
+                    if not blob_token:
+                        raise Exception("BLOB_READ_WRITE_TOKEN not found")
+                    
+                    filename = os.path.basename(file_path)
+                    
+                    # Get blob info
+                    head_url = f'https://blob.vercel-storage.com/head?pathname={quote(file_path)}'
+                    headers = {'Authorization': f'Bearer {blob_token}'}
+                    req = urllib.request.Request(head_url, headers=headers)
+                    with urllib.request.urlopen(req) as response:
+                        blob_info = json.loads(response.read().decode('utf-8'))
+                        download_url = blob_info.get('downloadUrl') or blob_info.get('url')
+                        if download_url:
+                            with urllib.request.urlopen(download_url) as download_response:
+                                content = download_response.read().decode('utf-8')
+                    
+                    if content:
+                        self.send_response(200)
+                        self.send_header('Content-Type', 'text/csv')
+                        self.send_header('Access-Control-Allow-Origin', '*')
+                        self.send_header('Content-Disposition', f'attachment; filename="{filename}"')
+                        self.end_headers()
+                        self.wfile.write(content.encode('utf-8'))
+                    else:
+                        self.send_response(404)
+                        self.send_header('Content-Type', 'application/json')
+                        self.send_header('Access-Control-Allow-Origin', '*')
+                        self.end_headers()
+                        self.wfile.write(json.dumps({'error': 'File not found'}).encode('utf-8'))
+                        
+                except Exception as e:
+                    self.send_response(500)
                     self.send_header('Content-Type', 'application/json')
                     self.send_header('Access-Control-Allow-Origin', '*')
                     self.end_headers()
-                    self.wfile.write(json.dumps({'error': 'File not found'}).encode('utf-8'))
+                    self.wfile.write(json.dumps({'error': f'Download failed: {str(e)}'}).encode('utf-8'))
             
         except Exception as e:
             self.send_response(500)
