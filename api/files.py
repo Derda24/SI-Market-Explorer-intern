@@ -42,6 +42,9 @@ class handler(BaseHTTPRequestHandler):
                     if not blob_token:
                         raise Exception("BLOB_READ_WRITE_TOKEN not found")
                     
+                    # Initialize all_blobs_all to empty list
+                    all_blobs_all = []
+                    
                     # Use vercel_blob package if available, otherwise fallback to REST API
                     if VERCEL_BLOB_AVAILABLE:
                         # Use the vercel_blob package
@@ -84,6 +87,14 @@ class handler(BaseHTTPRequestHandler):
                                     response_text = response.read().decode('utf-8')
                                     result = json.loads(response_text)
                                     all_blobs = result.get('blobs', result.get('files', []))
+                                
+                                # Also try without prefix
+                                list_url_all = 'https://blob.vercel-storage.com/list'
+                                req_all = urllib.request.Request(list_url_all, data=json.dumps({}).encode('utf-8'), headers=headers, method='POST')
+                                with urllib.request.urlopen(req_all) as response_all:
+                                    response_text_all = response_all.read().decode('utf-8')
+                                    result_all = json.loads(response_text_all)
+                                    all_blobs_all = result_all.get('blobs', result_all.get('files', []))
                             else:
                                 raise
                     
@@ -91,16 +102,23 @@ class handler(BaseHTTPRequestHandler):
                     interns_dict = {}
                     total_files = 0
                     
-                    # Also process all_blobs_all if available (blobs without prefix filter)
-                    blobs_to_process = all_blobs.copy() if all_blobs else []
-                    if 'all_blobs_all' in locals() and len(all_blobs_all) > 0:
-                        # Combine both lists, avoiding duplicates
-                        seen_pathnames = {blob.get('pathname') or blob.get('path') or blob.get('key') or '' for blob in all_blobs}
-                        for blob in all_blobs_all:
-                            pathname = blob.get('pathname') or blob.get('path') or blob.get('key') or ''
-                            if pathname and pathname not in seen_pathnames:
-                                blobs_to_process.append(blob)
-                                seen_pathnames.add(pathname)
+                    # Combine both lists (with prefix and without), avoiding duplicates
+                    blobs_to_process = []
+                    seen_pathnames = set()
+                    
+                    # Add blobs with prefix first
+                    for blob in (all_blobs or []):
+                        pathname = blob.get('pathname') or blob.get('path') or blob.get('key') or ''
+                        if pathname:
+                            blobs_to_process.append(blob)
+                            seen_pathnames.add(pathname)
+                    
+                    # Add blobs without prefix (all blobs) that aren't already included
+                    for blob in (all_blobs_all or []):
+                        pathname = blob.get('pathname') or blob.get('path') or blob.get('key') or ''
+                        if pathname and pathname not in seen_pathnames:
+                            blobs_to_process.append(blob)
+                            seen_pathnames.add(pathname)
                     
                     for blob in blobs_to_process:
                         # Try different possible field names for pathname
@@ -128,8 +146,7 @@ class handler(BaseHTTPRequestHandler):
                                 intern_name = match.group(1)  # Everything before "_products_"
                                 filename = f"products_{match.group(2)}_{match.group(3)}_{match.group(4)}.csv"
                             else:
-                                # Fallback: if filename starts with products_, use a default intern name
-                                # Or try to extract from the beginning of the filename
+                                # Fallback: try to extract using rsplit
                                 if pathname.startswith('products_'):
                                     # No intern name in filename, skip
                                     continue
