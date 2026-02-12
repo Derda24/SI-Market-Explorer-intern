@@ -38,6 +38,7 @@ class handler(BaseHTTPRequestHandler):
             if action == 'list':
                 # List all files from Vercel Blob Storage
                 try:
+                    # Use REST API directly (more reliable)
                     blob_token = os.environ.get('BLOB_READ_WRITE_TOKEN')
                     if not blob_token:
                         raise Exception("BLOB_READ_WRITE_TOKEN not found")
@@ -183,6 +184,14 @@ class handler(BaseHTTPRequestHandler):
                     # Sort interns by name
                     interns.sort(key=lambda x: x['name'])
                     
+                    # Temporary debug info
+                    debug_info = {
+                        'all_blobs_count': len(all_blobs) if 'all_blobs' in locals() else 0,
+                        'all_blobs_all_count': len(all_blobs_all) if 'all_blobs_all' in locals() else 0,
+                        'blobs_to_process_count': len(blobs_to_process) if 'blobs_to_process' in locals() else 0,
+                        'sample_pathnames': [blob.get('pathname') or blob.get('path') or blob.get('key') or '' for blob in (blobs_to_process[:3] if 'blobs_to_process' in locals() else [])]
+                    }
+                    
                     self.send_response(200)
                     self.send_header('Content-Type', 'application/json')
                     self.send_header('Access-Control-Allow-Origin', '*')
@@ -190,7 +199,8 @@ class handler(BaseHTTPRequestHandler):
                     self.wfile.write(json.dumps({
                         'interns': interns,
                         'total_files': total_files,
-                        'total_products': 0
+                        'total_products': 0,
+                        'debug': debug_info
                     }).encode('utf-8'))
                     
                 except Exception as e:
@@ -206,7 +216,8 @@ class handler(BaseHTTPRequestHandler):
                         'interns': [],
                         'total_files': 0,
                         'total_products': 0,
-                        'error': str(e)
+                        'error': str(e),
+                        'debug': 'Check Vercel function logs for details'
                     }).encode('utf-8'))
             
             elif action == 'download':
