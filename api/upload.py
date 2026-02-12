@@ -248,6 +248,14 @@ class handler(BaseHTTPRequestHandler):
                 'validation': csv_validation
             }
             
+            # Include blob storage status in response for debugging
+            if save_error_message:
+                response_data['blob_storage_error'] = save_error_message
+                response_data['blob_storage_warning'] = 'File validated but not saved to Blob Storage'
+            elif blob_url:
+                response_data['blob_storage_success'] = True
+                response_data['blob_url'] = blob_url
+            
             # Ensure all values are JSON-serializable
             try:
                 response_json = json.dumps(response_data, default=str)
