@@ -192,6 +192,7 @@ class handler(BaseHTTPRequestHandler):
             
             # Save file to Vercel Blob Storage
             blob_url = None
+            save_error_message = None
             try:
                 # Extract date from filename to ensure consistent naming
                 match = re.search(r'products_(\d{4})_(\d{2})_(\d{2})\.csv$', filename, re.IGNORECASE)
@@ -227,17 +228,13 @@ class handler(BaseHTTPRequestHandler):
                 with urllib.request.urlopen(req) as response:
                     result = json.loads(response.read().decode('utf-8'))
                     blob_url = result.get('url')
-                    print(f"Blob Storage upload response: {json.dumps(result, indent=2)}")
-                    print(f"Uploaded to path: {blob_path}")
                     if not blob_url:
                         raise Exception(f"Upload failed: {result}")
-                    print(f"Successfully saved to Blob Storage: {blob_path} -> {blob_url}")
                 
             except Exception as save_error:
                 # Log error but continue - file is validated
                 import traceback
                 print(f"ERROR: Failed to save file to Blob Storage: {str(save_error)}")
-                print(f"Traceback: {traceback.format_exc()}")
                 # Continue anyway - validation passed
             
             # Prepare response data
@@ -247,14 +244,6 @@ class handler(BaseHTTPRequestHandler):
                 'summary': summary,
                 'validation': csv_validation
             }
-            
-            # Include blob storage status in response for debugging
-            if save_error_message:
-                response_data['blob_storage_error'] = save_error_message
-                response_data['blob_storage_warning'] = 'File validated but not saved to Blob Storage'
-            elif blob_url:
-                response_data['blob_storage_success'] = True
-                response_data['blob_url'] = blob_url
             
             # Ensure all values are JSON-serializable
             try:
