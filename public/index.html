@@ -495,7 +495,14 @@
                         return;
                     }
                     if (data.success) {
-                        showAlert('Uploaded: ' + file.name, 'success');
+                        let message = 'Uploaded: ' + file.name;
+                        if (data.blob_storage_error) {
+                            message += ' (Warning: ' + data.blob_storage_error + ')';
+                            console.warn('Blob Storage error:', data.blob_storage_error);
+                        } else if (data.blob_storage_success) {
+                            console.log('Blob Storage success:', data.blob_url);
+                        }
+                        showAlert(message, data.blob_storage_error ? 'error' : 'success');
                         document.getElementById('upload-form').reset();
                         document.getElementById('file-name').textContent = '';
                         document.getElementById('preview-section').classList.add('hidden');
