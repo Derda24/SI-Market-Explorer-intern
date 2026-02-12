@@ -208,40 +208,53 @@ class handler(BaseHTTPRequestHandler):
                 
                 print(f"Attempting to save file to Blob Storage: {blob_path}")
                 
-                # Use Vercel Blob REST API (more reliable than package)
                 blob_token = os.environ.get('BLOB_READ_WRITE_TOKEN')
                 if not blob_token:
                     raise Exception("BLOB_READ_WRITE_TOKEN environment variable not set. Make sure Vercel Blob is enabled in your project.")
                 
                 print(f"BLOB_READ_WRITE_TOKEN found: {blob_token[:20] if blob_token else 'None'}...")
                 
-                # Upload via REST API
-                upload_url = 'https://blob.vercel-storage.com/put'
-                headers = {
-                    'Authorization': f'Bearer {blob_token}',
-                    'Content-Type': 'application/json'
-                }
-                upload_data = {
-                    'pathname': blob_path,
-                    'content': csv_content,
-                    'contentType': 'text/csv',
-                    'addRandomSuffix': False
-                }
-                print(f"Upload data size: {len(csv_content)} bytes")
-                print(f"Upload URL: {upload_url}")
-                print(f"Upload pathname: {blob_path}")
-                
-                data = json.dumps(upload_data).encode('utf-8')
-                
-                print("Making request to Blob Storage API...")
-                req = urllib.request.Request(upload_url, data=data, headers=headers, method='POST')
-                with urllib.request.urlopen(req) as response:
-                    result = json.loads(response.read().decode('utf-8'))
-                    print(f"Blob Storage upload response: {json.dumps(result, indent=2)}")
+                # Try using vercel_blob package first (more reliable)
+                try:
+                    import vercel_blob
+                    print("Using vercel_blob package for upload")
+                    result = vercel_blob.put(blob_path, csv_content.encode('utf-8'), {
+                        'contentType': 'text/csv',
+                        'addRandomSuffix': False
+                    })
+                    print(f"vercel_blob.put result: {json.dumps(result, indent=2, default=str)}")
                     blob_url = result.get('url')
-                    if not blob_url:
-                        raise Exception(f"Upload failed: {result}")
-                    print(f"Successfully saved to Blob Storage: {blob_path} -> {blob_url}")
+                    if blob_url:
+                        print(f"Successfully saved to Blob Storage via package: {blob_path} -> {blob_url}")
+                except ImportError:
+                    print("vercel_blob package not available, using REST API")
+                    # Fallback to REST API with PUT method
+                    upload_url = 'https://blob.vercel-storage.com/put'
+                    headers = {
+                        'Authorization': f'Bearer {blob_token}',
+                        'Content-Type': 'application/json'
+                    }
+                    upload_data = {
+                        'pathname': blob_path,
+                        'content': csv_content,
+                        'contentType': 'text/csv',
+                        'addRandomSuffix': False
+                    }
+                    print(f"Upload data size: {len(csv_content)} bytes")
+                    print(f"Upload URL: {upload_url}")
+                    print(f"Upload pathname: {blob_path}")
+                    
+                    data = json.dumps(upload_data).encode('utf-8')
+                    
+                    print("Making PUT request to Blob Storage API...")
+                    req = urllib.request.Request(upload_url, data=data, headers=headers, method='PUT')
+                    with urllib.request.urlopen(req) as response:
+                        result = json.loads(response.read().decode('utf-8'))
+                        print(f"Blob Storage upload response: {json.dumps(result, indent=2)}")
+                        blob_url = result.get('url')
+                        if not blob_url:
+                            raise Exception(f"Upload failed: {result}")
+                        print(f"Successfully saved to Blob Storage via REST API: {blob_path} -> {blob_url}")
                 
             except Exception as save_error:
                 # Log error but continue - file is validated
