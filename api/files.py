@@ -38,7 +38,6 @@ class handler(BaseHTTPRequestHandler):
             if action == 'list':
                 # List all files from Vercel Blob Storage
                 try:
-                    # Use REST API directly (more reliable)
                     blob_token = os.environ.get('BLOB_READ_WRITE_TOKEN')
                     if not blob_token:
                         raise Exception("BLOB_READ_WRITE_TOKEN not found")
@@ -49,21 +48,15 @@ class handler(BaseHTTPRequestHandler):
                     # Use vercel_blob package if available, otherwise fallback to REST API
                     if VERCEL_BLOB_AVAILABLE:
                         # Use the vercel_blob package
-                        print("Using vercel_blob package for listing")
                         # Try with prefix first
                         result = vercel_blob.list({'prefix': 'interns/'})
-                        print(f"List result with prefix: {json.dumps(result, indent=2, default=str)}")
                         all_blobs = result.get('blobs', [])
-                        print(f"Found {len(all_blobs)} blobs with prefix 'interns/'")
                         
                         # Also try without prefix to see ALL blobs
                         result_all = vercel_blob.list({})
-                        print(f"List result without prefix: {json.dumps(result_all, indent=2, default=str)}")
                         all_blobs_all = result_all.get('blobs', [])
-                        print(f"Found {len(all_blobs_all)} total blobs")
                     else:
                         # Fallback: Try REST API with GET first
-                        print("Using REST API fallback for listing")
                         try:
                             list_url = 'https://blob.vercel-storage.com/list?prefix=interns/'
                             headers = {'Authorization': f'Bearer {blob_token}'}
@@ -71,9 +64,7 @@ class handler(BaseHTTPRequestHandler):
                             with urllib.request.urlopen(req) as response:
                                 response_text = response.read().decode('utf-8')
                                 result = json.loads(response_text)
-                                print(f"REST API list result with prefix: {json.dumps(result, indent=2)}")
                                 all_blobs = result.get('blobs', result.get('files', []))
-                                print(f"Found {len(all_blobs)} blobs with prefix")
                             
                             # Also try without prefix
                             list_url_all = 'https://blob.vercel-storage.com/list'
@@ -81,11 +72,8 @@ class handler(BaseHTTPRequestHandler):
                             with urllib.request.urlopen(req_all) as response_all:
                                 response_text_all = response_all.read().decode('utf-8')
                                 result_all = json.loads(response_text_all)
-                                print(f"REST API list result without prefix: {json.dumps(result_all, indent=2)}")
                                 all_blobs_all = result_all.get('blobs', result_all.get('files', []))
-                                print(f"Found {len(all_blobs_all)} total blobs")
                         except urllib.error.HTTPError as e:
-                            print(f"REST API GET failed with {e.code}: {e.reason}")
                             # If GET fails with 404, try POST
                             if e.code == 404:
                                 list_url = 'https://blob.vercel-storage.com/list'
@@ -98,7 +86,6 @@ class handler(BaseHTTPRequestHandler):
                                 with urllib.request.urlopen(req) as response:
                                     response_text = response.read().decode('utf-8')
                                     result = json.loads(response_text)
-                                    print(f"REST API POST list result with prefix: {json.dumps(result, indent=2)}")
                                     all_blobs = result.get('blobs', result.get('files', []))
                                 
                                 # Also try without prefix
@@ -107,15 +94,9 @@ class handler(BaseHTTPRequestHandler):
                                 with urllib.request.urlopen(req_all) as response_all:
                                     response_text_all = response_all.read().decode('utf-8')
                                     result_all = json.loads(response_text_all)
-                                    print(f"REST API POST list result without prefix: {json.dumps(result_all, indent=2)}")
                                     all_blobs_all = result_all.get('blobs', result_all.get('files', []))
                             else:
                                 raise
-                        except Exception as e:
-                            print(f"Error in REST API fallback: {str(e)}")
-                            import traceback
-                            print(traceback.format_exc())
-                            raise
                     
                     # Organize blobs by intern name
                     interns_dict = {}
@@ -202,14 +183,6 @@ class handler(BaseHTTPRequestHandler):
                     # Sort interns by name
                     interns.sort(key=lambda x: x['name'])
                     
-                    # Temporary debug info
-                    debug_info = {
-                        'all_blobs_count': len(all_blobs) if 'all_blobs' in locals() else 0,
-                        'all_blobs_all_count': len(all_blobs_all) if 'all_blobs_all' in locals() else 0,
-                        'blobs_to_process_count': len(blobs_to_process) if 'blobs_to_process' in locals() else 0,
-                        'sample_pathnames': [blob.get('pathname') or blob.get('path') or blob.get('key') or '' for blob in (blobs_to_process[:3] if 'blobs_to_process' in locals() else [])]
-                    }
-                    
                     self.send_response(200)
                     self.send_header('Content-Type', 'application/json')
                     self.send_header('Access-Control-Allow-Origin', '*')
@@ -217,12 +190,11 @@ class handler(BaseHTTPRequestHandler):
                     self.wfile.write(json.dumps({
                         'interns': interns,
                         'total_files': total_files,
-                        'total_products': 0,
-                        'debug': debug_info
+                        'total_products': 0
                     }).encode('utf-8'))
                     
                 except Exception as e:
-                    # Log error for debugging (keep minimal logging for errors)
+                    # Log error for debugging
                     print(f"Error listing blobs: {str(e)}")
                     
                     # Return 200 with error info so frontend can display it

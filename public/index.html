@@ -495,14 +495,7 @@
                         return;
                     }
                     if (data.success) {
-                        let message = 'Uploaded: ' + file.name;
-                        if (data.blob_storage_error) {
-                            message += ' (Warning: ' + data.blob_storage_error + ')';
-                            console.warn('Blob Storage error:', data.blob_storage_error);
-                        } else if (data.blob_storage_success) {
-                            console.log('Blob Storage success:', data.blob_url);
-                        }
-                        showAlert(message, data.blob_storage_error ? 'error' : 'success');
+                        showAlert('Uploaded: ' + file.name, 'success');
                         document.getElementById('upload-form').reset();
                         document.getElementById('file-name').textContent = '';
                         document.getElementById('preview-section').classList.add('hidden');
@@ -522,7 +515,6 @@
             try {
                 const response = await fetch('/api/files?action=list');
                 const data = await response.json();
-                console.log('Dashboard API response:', JSON.stringify(data, null, 2)); // Debug
                 
                 let html = '<div class="stats">';
                 html += '<div class="stat-card"><div class="stat-value">' + data.interns.length + '</div><div class="stat-label">Total interns</div></div>';
@@ -531,19 +523,6 @@
                 // Show error if present
                 if (data.error) {
                     html += '<div class="alert alert-error">Error loading files: ' + data.error + '</div>';
-                }
-                
-                // Temporary debug info
-                if (data.debug) {
-                    html += '<div class="alert alert-info" style="font-size: 0.75rem; padding: 10px; margin-bottom: 10px;">';
-                    html += '<strong>Debug:</strong> ';
-                    html += 'Blobs with prefix: ' + data.debug.all_blobs_count + ' | ';
-                    html += 'All blobs: ' + data.debug.all_blobs_all_count + ' | ';
-                    html += 'Processing: ' + data.debug.blobs_to_process_count;
-                    if (data.debug.sample_pathnames && data.debug.sample_pathnames.length > 0) {
-                        html += '<br>Sample pathnames: ' + data.debug.sample_pathnames.join(', ');
-                    }
-                    html += '</div>';
                 }
                 
                 html += '<div class="dashboard-section"><h3>Intern files</h3>';
