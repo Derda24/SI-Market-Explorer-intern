@@ -38,17 +38,33 @@ class handler(BaseHTTPRequestHandler):
                     headers = {'Authorization': f'Bearer {blob_token}'}
                     req = urllib.request.Request(list_url, headers=headers)
                     with urllib.request.urlopen(req) as response:
-                        result = json.loads(response.read().decode('utf-8'))
-                        all_blobs = result.get('blobs', [])
+                        response_text = response.read().decode('utf-8')
+                        result = json.loads(response_text)
+                        
+                        # Debug: log the response structure
+                        print(f"Blob Storage list response: {json.dumps(result, indent=2)}")
+                        
+                        # Handle different possible response formats
+                        all_blobs = []
+                        if isinstance(result, dict):
+                            all_blobs = result.get('blobs', result.get('files', []))
+                        elif isinstance(result, list):
+                            all_blobs = result
                     
                     # Organize blobs by intern name
                     interns_dict = {}
                     total_files = 0
                     
                     for blob in all_blobs:
-                        pathname = blob.get('pathname', '')
+                        # Try different possible field names for pathname
+                        pathname = blob.get('pathname') or blob.get('path') or blob.get('key') or ''
+                        
+                        # Debug: log blob structure
+                        if not pathname:
+                            print(f"Blob missing pathname: {json.dumps(blob)}")
+                        
                         # Path format: interns/{intern_name}/products_YYYY_MM_DD.csv
-                        if pathname.startswith('interns/') and pathname.endswith('.csv'):
+                        if pathname and pathname.startswith('interns/') and pathname.endswith('.csv'):
                             parts = pathname.split('/')
                             if len(parts) >= 3:
                                 intern_name = parts[1]
@@ -62,8 +78,8 @@ class handler(BaseHTTPRequestHandler):
                                         'filename': filename,
                                         'date': filename.replace('products_', '').replace('.csv', ''),
                                         'path': pathname,
-                                        'url': blob.get('url'),
-                                        'downloadUrl': blob.get('downloadUrl')
+                                        'url': blob.get('url') or blob.get('downloadUrl'),
+                                        'downloadUrl': blob.get('downloadUrl') or blob.get('url')
                                     })
                                     total_files += 1
                     
@@ -90,8 +106,15 @@ class handler(BaseHTTPRequestHandler):
                     }).encode('utf-8'))
                     
                 except Exception as e:
-                    # If Blob Storage fails, return empty list
-                    print(f"Error listing blobs: {str(e)}")
+                    # Log detailed error for debugging
+                    import traceback
+                    error_details = {
+                        'error': str(e),
+                        'traceback': traceback.format_exc()
+                    }
+                    print(f"Error listing blobs: {json.dumps(error_details)}")
+                    
+                    # Return 200 with error info so frontend can display it
                     self.send_response(200)
                     self.send_header('Content-Type', 'application/json')
                     self.send_header('Access-Control-Allow-Origin', '*')
@@ -99,7 +122,9 @@ class handler(BaseHTTPRequestHandler):
                     self.wfile.write(json.dumps({
                         'interns': [],
                         'total_files': 0,
-                        'total_products': 0
+                        'total_products': 0,
+                        'error': str(e),
+                        'debug': 'Check Vercel function logs for details'
                     }).encode('utf-8'))
             
             elif action == 'download':

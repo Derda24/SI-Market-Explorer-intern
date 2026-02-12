@@ -515,25 +515,36 @@
             try {
                 const response = await fetch('/api/files?action=list');
                 const data = await response.json();
+                
                 let html = '<div class="stats">';
                 html += '<div class="stat-card"><div class="stat-value">' + data.interns.length + '</div><div class="stat-label">Total interns</div></div>';
                 html += '<div class="stat-card"><div class="stat-value">' + data.total_files + '</div><div class="stat-label">Total files</div></div></div>';
+                
+                // Show error if present
+                if (data.error) {
+                    html += '<div class="alert alert-error">Error loading files: ' + data.error + '</div>';
+                }
+                
                 html += '<div class="dashboard-section"><h3>Intern files</h3>';
-                data.interns.forEach(intern => {
-                    html += '<div class="intern-block"><h4>' + intern.name + '</h4><p>Files: ' + intern.file_count + '</p>';
-                    if (intern.files.length) {
-                        html += '<ul>';
-                        intern.files.forEach(file => {
-                            html += '<li>' + file.filename + ' <a href="/api/files?action=download&path=' + encodeURIComponent(file.path) + '">Download</a></li>';
-                        });
-                        html += '</ul>';
-                    }
-                    html += '</div>';
-                });
+                if (data.interns && data.interns.length > 0) {
+                    data.interns.forEach(intern => {
+                        html += '<div class="intern-block"><h4>' + intern.name + '</h4><p>Files: ' + intern.file_count + '</p>';
+                        if (intern.files && intern.files.length) {
+                            html += '<ul>';
+                            intern.files.forEach(file => {
+                                html += '<li>' + file.filename + ' <a href="/api/files?action=download&path=' + encodeURIComponent(file.path) + '">Download</a></li>';
+                            });
+                            html += '</ul>';
+                        }
+                        html += '</div>';
+                    });
+                } else {
+                    html += '<p style="color: var(--gray-500); padding: 20px;">No files found. Upload a CSV file to get started.</p>';
+                }
                 html += '</div>';
                 document.getElementById('dashboard-content').innerHTML = html;
             } catch (err) {
-                document.getElementById('dashboard-content').innerHTML = '<div class="alert alert-error">Error: ' + err.message + '</div>';
+                document.getElementById('dashboard-content').innerHTML = '<div class="alert alert-error">Error loading dashboard: ' + err.message + '</div>';
             }
         }
     </script>
